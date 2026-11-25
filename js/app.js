@@ -73,11 +73,24 @@
     }
   }
 
+  const THEME_COLORS = {
+    paper: "#F6F2E9",
+    sepia: "#EFE5D1",
+    night: "#191816",
+  };
+
+  let deferredInstallPrompt = null;
+
   function applyPrefs() {
     const root = document.documentElement;
     root.dataset.theme = state.prefs.theme;
     root.dataset.size = state.prefs.size;
     root.dataset.spacing = state.prefs.spacing;
+
+    const themeMeta = document.getElementById("theme-color-meta");
+    if (themeMeta) {
+      themeMeta.setAttribute("content", THEME_COLORS[state.prefs.theme] || THEME_COLORS.paper);
+    }
 
     document.querySelectorAll("[data-pref-group]").forEach((btn) => {
       const group = btn.dataset.prefGroup;
@@ -85,6 +98,43 @@
       const isSelected = state.prefs[group] === val;
       btn.classList.toggle("is-selected", isSelected);
       btn.setAttribute("aria-pressed", String(isSelected));
+    });
+  }
+
+  function initPWA() {
+    if (
+      "serviceWorker" in navigator &&
+      (window.location.protocol === "https:" || window.location.protocol === "http:")
+    ) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {
+        /* ignore registration errors in local dev */
+      });
+    }
+
+    const wrap = document.getElementById("pwa-install-wrap");
+    const btn = document.getElementById("pwa-install-btn");
+    if (!wrap || !btn) return;
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      wrap.hidden = false;
+    });
+
+    btn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try {
+        await deferredInstallPrompt.userChoice;
+      } finally {
+        deferredInstallPrompt = null;
+        wrap.hidden = true;
+      }
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      wrap.hidden = true;
     });
   }
 
@@ -1025,6 +1075,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     applyPrefs();
     initReaderPopover();
+    initPWA();
     handleRouteChange();
     window.addEventListener("hashchange", handleRouteChange);
   });

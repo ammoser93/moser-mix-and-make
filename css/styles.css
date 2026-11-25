@@ -276,6 +276,22 @@ button {
 .aa-theme-swatch--sepia { background-color: #efe5d1; }
 .aa-theme-swatch--night { background-color: #1f1d1a; }
 
+.aa-install-wrap {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.aa-install-wrap[hidden] {
+  display: none;
+}
+
+.aa-install-btn {
+  width: 100%;
+  min-height: 36px;
+  font-size: 13px;
+}
+
 /* --------------------------------------------------------------------------
    Main Content Stage
    -------------------------------------------------------------------------- */
@@ -1326,11 +1342,11 @@ button {
   }
 
   .menu-tray {
-    bottom: 4.5rem;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .reader-footer {
-    padding-bottom: 5rem;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-nav {
@@ -1341,6 +1357,7 @@ button {
     z-index: 40;
     display: grid;
     grid-template-columns: repeat(6, 1fr);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background-color: var(--bg-page-translucent);
     backdrop-filter: blur(8px);
     border-top: 1px solid var(--rule);

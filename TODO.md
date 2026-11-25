@@ -58,5 +58,6 @@
 - [ ] Kitchen & app management tools (reset weekly menu, manage categories/storage locations, data export/backup, and additional admin tools as needs emerge)
 
 ## Phase 11: Polish & Household Deployment
+- [x] **PWA installability** — `manifest.webmanifest` (`short_name: "Mix & Make"`), iOS/Android PNG icons, service worker (`sw.js`), mobile safe-area insets, and dynamic status-bar theme color
 - [ ] Responsive layout polish for phones, tablets, and kitchen counters
-- [ ] Deploy for household access (Firebase Hosting + optional "Add to Home Screen" PWA support with `short_name: "Mix & Make"`)
+- [ ] Deploy over HTTPS for household access & phone installation (Firebase Hosting)

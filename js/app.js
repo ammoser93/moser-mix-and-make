@@ -473,21 +473,39 @@
      Weekly Family Menu (#menu)
      ------------------------------------------------------------------------ */
 
+  function getRecipeTags(recipe) {
+    return Array.isArray(recipe.tags) ? recipe.tags : [];
+  }
+
+  function getRecipeAllIngredients(recipe) {
+    if (Array.isArray(recipe.ingredientGroups)) {
+      return recipe.ingredientGroups.flatMap((g) => g.items || []);
+    }
+    return Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+  }
+
+  function formatMetaTime(meta) {
+    if (!meta) return "";
+    if (meta.prepTime && meta.cookTime) return `${meta.prepTime} + ${meta.cookTime}`;
+    return meta.cookTime || meta.prepTime || meta.yield || "";
+  }
+
   function renderMenuView() {
-    const recipes = window.MOSER_SAMPLE_DATA?.recipes || [];
-    const categories = ["All", ...new Set(recipes.map((r) => r.category))];
-    const filtered = recipes.filter(
-      (r) => state.menuCategory === "All" || r.category === state.menuCategory
+    const allRecipes = window.MOSER_SAMPLE_DATA?.recipes || [];
+    const menuRecipes = allRecipes.filter((r) => r.showOnMenu !== false);
+    const availableTags = ["All", ...new Set(menuRecipes.flatMap((r) => getRecipeTags(r)))];
+    const filtered = menuRecipes.filter(
+      (r) => state.menuCategory === "All" || getRecipeTags(r).includes(state.menuCategory)
     );
 
-    const pickedRecipes = recipes.filter((r) => state.weeklyPicks.has(r.id));
+    const pickedRecipes = menuRecipes.filter((r) => state.weeklyPicks.has(r.id));
     const pickedNames = pickedRecipes.map((r) => r.title).join(" · ");
 
     return `
       <header class="page-head page-head--row">
         <div>
           <h1 class="page-title">Weekly Menu</h1>
-          <p class="page-subtitle">Tap any meal to add it to this week's menu and build an ingredient list.</p>
+          <p class="page-subtitle">Tap any meal to add it to this week's menu and build an ingredient list. Only recipes with <em>Show on Menu</em> enabled appear here.</p>
         </div>
         ${
           pickedRecipes.length
@@ -499,12 +517,12 @@
       </header>
 
       <div class="toolbar">
-        <div class="pill-bar" role="group" aria-label="Filter menu by category">
-          ${categories
+        <div class="pill-bar" role="group" aria-label="Filter menu by tag">
+          ${availableTags
             .map(
-              (cat) => `
-            <button type="button" class="pill ${state.menuCategory === cat ? "is-active" : ""}" data-menu-cat="${escapeHtml(cat)}">
-              ${escapeHtml(cat)}
+              (tag) => `
+            <button type="button" class="pill ${state.menuCategory === tag ? "is-active" : ""}" data-menu-cat="${escapeHtml(tag)}">
+              ${escapeHtml(tag)}
             </button>`
             )
             .join("")}
@@ -515,6 +533,8 @@
         ${filtered
           .map((r) => {
             const picked = state.weeklyPicks.has(r.id);
+            const timeLabel = formatMetaTime(r.meta);
+            const primaryTag = getRecipeTags(r)[0] || "Recipe";
             return `
               <article class="menu-card ${picked ? "is-picked" : ""}" data-menu-card="${escapeHtml(r.id)}">
                 <div class="menu-card__media">
@@ -523,11 +543,11 @@
                 </div>
                 <div class="menu-card__body">
                   <div class="menu-card__top-meta">
-                    <span class="tag">${escapeHtml(r.category)}</span>
-                    <span>${escapeHtml(r.prepTime)} + ${escapeHtml(r.cookTime)}</span>
+                    <span class="tag">${escapeHtml(primaryTag)}</span>
+                    ${timeLabel ? `<span>${escapeHtml(timeLabel)}</span>` : ""}
                   </div>
                   <h2 class="menu-card__title">${escapeHtml(r.title)}</h2>
-                  <p class="menu-card__desc">${escapeHtml(r.subtitle)}</p>
+                  <p class="menu-card__desc">${escapeHtml(r.subtitle || "")}</p>
                   <div class="menu-card__actions">
                     <button
                       type="button"
@@ -579,12 +599,13 @@
         </div>
 
         ${pickedRecipes
-          .map(
-            (r) => `
+          .map((r) => {
+            const items = getRecipeAllIngredients(r);
+            return `
           <div class="grocery-group">
             <h3 class="grocery-group__title">${escapeHtml(r.title)}</h3>
             <ul class="check-list">
-              ${r.ingredients
+              ${items
                 .map((ing, i) => {
                   const key = `grocery:${r.id}:${i}`;
                   const checked = state.checkedItems.has(key);
@@ -596,8 +617,8 @@
                 })
                 .join("")}
             </ul>
-          </div>`
-          )
+          </div>`;
+          })
           .join("")}
       </section>
     `;
@@ -674,36 +695,39 @@
 
   function renderRecipesView() {
     const recipes = window.MOSER_SAMPLE_DATA?.recipes || [];
-    const categories = ["All", ...new Set(recipes.map((r) => r.category))];
+    const allTags = ["All", ...new Set(recipes.flatMap((r) => getRecipeTags(r)))];
     const q = state.recipeSearch.trim().toLowerCase();
 
     const filtered = recipes.filter((r) => {
-      const catOk = state.recipeCategory === "All" || r.category === state.recipeCategory;
+      const tags = getRecipeTags(r);
+      const tagOk = state.recipeCategory === "All" || tags.includes(state.recipeCategory);
       const searchOk =
         !q ||
         r.title.toLowerCase().includes(q) ||
-        r.subtitle.toLowerCase().includes(q) ||
-        r.category.toLowerCase().includes(q);
-      return catOk && searchOk;
+        (r.subtitle || "").toLowerCase().includes(q) ||
+        tags.some((t) => t.toLowerCase().includes(q));
+      return tagOk && searchOk;
     });
 
     const rows = filtered.length
       ? filtered
-          .map(
-            (r) => `
+          .map((r) => {
+            const tags = getRecipeTags(r);
+            const timeLabel = formatMetaTime(r.meta);
+            return `
           <li class="recipe-row">
             <a class="recipe-row__link" href="#recipe/${encodeURIComponent(r.id)}">
               <div>
                 <div class="recipe-row__title">${escapeHtml(r.title)}</div>
-                <p class="recipe-row__blurb">${escapeHtml(r.subtitle)}</p>
+                ${r.subtitle ? `<p class="recipe-row__blurb">${escapeHtml(r.subtitle)}</p>` : ""}
               </div>
               <div class="recipe-row__meta">
-                <span class="tag">${escapeHtml(r.category)}</span>
-                <span>${escapeHtml(r.prepTime)} + ${escapeHtml(r.cookTime)}</span>
+                <span class="tag-row">${tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</span>
+                ${timeLabel ? `<span>${escapeHtml(timeLabel)}</span>` : ""}
               </div>
             </a>
-          </li>`
-          )
+          </li>`;
+          })
           .join("")
       : `<li class="empty-state">No recipes match "${escapeHtml(state.recipeSearch)}".</li>`;
 
@@ -711,7 +735,7 @@
       <header class="page-head page-head--row">
         <div>
           <h1 class="page-title">Recipes</h1>
-          <p class="page-subtitle">Placeholder entries — our real format will follow your Google Drive recipes.</p>
+          <p class="page-subtitle">Sample entries using our finalized schema — real Google Drive recipes import in Phase 5.</p>
         </div>
         <button type="button" class="btn btn--primary" id="mock-add-recipe">+ Add Recipe</button>
       </header>
@@ -721,16 +745,16 @@
           type="search"
           id="recipe-search"
           class="search-input"
-          placeholder="Search recipes by title or style…"
+          placeholder="Search recipes by title or tag…"
           value="${escapeHtml(state.recipeSearch)}"
           aria-label="Search recipes"
         />
-        <div class="pill-bar" role="group" aria-label="Filter by category">
-          ${categories
+        <div class="pill-bar" role="group" aria-label="Filter by tag">
+          ${allTags
             .map(
-              (cat) => `
-            <button type="button" class="pill ${state.recipeCategory === cat ? "is-active" : ""}" data-cat="${escapeHtml(cat)}">
-              ${escapeHtml(cat)}
+              (tag) => `
+            <button type="button" class="pill ${state.recipeCategory === tag ? "is-active" : ""}" data-cat="${escapeHtml(tag)}">
+              ${escapeHtml(tag)}
             </button>`
             )
             .join("")}
@@ -772,56 +796,102 @@
     const recipe = recipes.find((r) => r.id === recipeId) || recipes[0];
     if (!recipe) return `<p class="empty-state">Recipe not found.</p>`;
 
+    const tags = getRecipeTags(recipe);
+    const meta = recipe.meta || {};
+    const metaItems = [
+      meta.prepTime ? `<span><strong>Prep:</strong> ${escapeHtml(meta.prepTime)}</span>` : "",
+      meta.cookTime ? `<span><strong>Cook:</strong> ${escapeHtml(meta.cookTime)}</span>` : "",
+      meta.yield ? `<span><strong>Yield:</strong> ${escapeHtml(meta.yield)}</span>` : "",
+      meta.sourceUrl
+        ? `<span><strong>Source:</strong> <a href="${escapeHtml(meta.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">${escapeHtml(meta.sourceName || "Link")}</a></span>`
+        : "",
+    ].filter(Boolean);
+
+    const ingGroups = Array.isArray(recipe.ingredientGroups) ? recipe.ingredientGroups : [];
+    const instGroups = Array.isArray(recipe.instructionGroups) ? recipe.instructionGroups : [];
+    const notesText = (recipe.notes || "").trim();
+
     return `
       <a class="back-link" href="#recipes">← Back to Recipes</a>
 
       <header class="page-head">
         <h1 class="page-title">${escapeHtml(recipe.title)}</h1>
-        <p class="page-subtitle">${escapeHtml(recipe.subtitle)}</p>
-        <div class="recipe-meta-strip">
-          <span><strong>Category:</strong> ${escapeHtml(recipe.category)}</span>
-          <span><strong>Prep:</strong> ${escapeHtml(recipe.prepTime)}</span>
-          <span><strong>Cook:</strong> ${escapeHtml(recipe.cookTime)}</span>
-          <span><strong>Yield:</strong> ${escapeHtml(recipe.servings)}</span>
-        </div>
+        ${recipe.subtitle ? `<p class="page-subtitle">${escapeHtml(recipe.subtitle)}</p>` : ""}
+        ${
+          tags.length || metaItems.length
+            ? `<div class="recipe-meta-strip">
+                 ${tags.length ? `<span class="tag-row">${tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</span>` : ""}
+                 ${metaItems.join("")}
+               </div>`
+            : ""
+        }
       </header>
 
       <div class="recipe-layout">
         <section aria-labelledby="ingredients-heading">
           <h2 id="ingredients-heading" class="recipe-section-title">Ingredients</h2>
-          <ul class="check-list">
-            ${recipe.ingredients
-              .map((ing, i) => {
-                const key = `${recipe.id}:ing:${i}`;
-                const checked = state.checkedItems.has(key);
-                return `
-                  <li class="check-list__item ${checked ? "is-checked" : ""}" data-check-key="${key}" role="checkbox" aria-checked="${checked}" tabindex="0">
-                    <span class="check-box" aria-hidden="true">✓</span>
-                    <span class="check-list__text">${escapeHtml(ing)}</span>
-                  </li>`;
-              })
-              .join("")}
-          </ul>
+          ${ingGroups
+            .map(
+              (group, gi) => `
+            <div class="recipe-group">
+              ${group.label ? `<h3 class="recipe-group__label">${escapeHtml(group.label)}</h3>` : ""}
+              <ul class="check-list">
+                ${(group.items || [])
+                  .map((ing, i) => {
+                    const key = `${recipe.id}:ing:${gi}:${i}`;
+                    const checked = state.checkedItems.has(key);
+                    return `
+                      <li class="check-list__item ${checked ? "is-checked" : ""}" data-check-key="${key}" role="checkbox" aria-checked="${checked}" tabindex="0">
+                        <span class="check-box" aria-hidden="true">✓</span>
+                        <span class="check-list__text">${escapeHtml(ing)}</span>
+                      </li>`;
+                  })
+                  .join("")}
+              </ul>
+            </div>`
+            )
+            .join("")}
         </section>
 
-        <section aria-labelledby="method-heading">
-          <h2 id="method-heading" class="recipe-section-title">Method</h2>
-          <ol class="step-list">
-            ${recipe.steps
-              .map((step, i) => {
-                const key = `${recipe.id}:step:${i}`;
-                const checked = state.checkedItems.has(key);
-                return `
-                  <li class="step-item ${checked ? "is-checked" : ""}" data-check-key="${key}" role="checkbox" aria-checked="${checked}" tabindex="0">
-                    <span>${escapeHtml(step)}</span>
-                  </li>`;
-              })
-              .join("")}
-          </ol>
+        <section aria-labelledby="instructions-heading">
+          <h2 id="instructions-heading" class="recipe-section-title">Instructions</h2>
+          ${instGroups
+            .map(
+              (group, gi) => `
+            <div class="recipe-group">
+              ${group.label ? `<h3 class="recipe-group__label">${escapeHtml(group.label)}</h3>` : ""}
+              <ol class="step-list">
+                ${(group.steps || [])
+                  .map((step, i) => {
+                    const text = typeof step === "string" ? step : step.text;
+                    const substeps = typeof step === "object" && Array.isArray(step.substeps) ? step.substeps : [];
+                    const key = `${recipe.id}:step:${gi}:${i}`;
+                    const checked = state.checkedItems.has(key);
+                    return `
+                      <li class="step-item ${checked ? "is-checked" : ""}" data-check-key="${key}" role="checkbox" aria-checked="${checked}" tabindex="0">
+                        <div>
+                          <span>${escapeHtml(text)}</span>
+                          ${
+                            substeps.length
+                              ? `<ul class="substep-list">${substeps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+                              : ""
+                          }
+                        </div>
+                      </li>`;
+                  })
+                  .join("")}
+              </ol>
+            </div>`
+            )
+            .join("")}
 
-          <aside class="callout-note">
-            <strong>Kitchen Note:</strong> ${escapeHtml(recipe.notes)}
-          </aside>
+          ${
+            notesText
+              ? `<aside class="callout-note">
+                   <strong>Notes:</strong> ${escapeHtml(notesText).replace(/\n/g, "<br />")}
+                 </aside>`
+              : ""
+          }
         </section>
       </div>
     `;

@@ -17,22 +17,22 @@
 - [x] **Final theme sign-off** — Phase 2 complete! *(v0.2 recorded in `design.md`)*
 
 ## Phase 3: Recipe Format & Google Drive Reference
-- [ ] **Pull and review existing recipes from Google Drive** *(current step)*
-- [ ] Finalize the household recipe format / data schema based on those existing recipes (including a flexible `tags` array with tags like `Kid-Friendly`, plus recipe photos/thumbnails for the Menu page)
+- [x] **Pull and review existing recipes from Google Drive** — inspected template + 6 sample recipes across 30 root `"Recipe: ..."` docs
+- [x] **Finalize the household recipe format / data schema** — documented in `schema.md` (`tags[]`, `showOnMenu` boolean, `ingredientGroups`, `instructionGroups` with sub-steps, optional `meta`, `settings/tags`, and backup-first mass-update workflow) and updated the prototype to match
 
 ## Phase 4: Firebase Backend & Household Security
-- [ ] Create Firebase project (`moser-mix-and-make`) and configure Firestore database, Firebase Auth, and Storage (for recipe photos)
+- [ ] **Create Firebase project (`moser-mix-and-make`)** and configure Firestore database, Firebase Auth, and Storage (for recipe photos) *(in progress)*
 - [ ] Write Firestore & Storage Security Rules so data access is strictly enforced on the backend
 - [ ] Wire up Firebase SDK and a clean JS data layer
 
 ## Phase 5: Recipe Book
-- [ ] Recipe library view (browse, search, filter by category/tag)
+- [ ] Recipe library view (browse, search, filter by tags)
 - [ ] Distraction-free cooking / reading view (checkable ingredients/steps, screen wake-lock while cooking)
-- [ ] Add & edit recipe forms (including image upload) matching the finalized recipe format
-- [ ] Import existing Google Drive recipes into Firebase
+- [ ] Add & edit recipe forms with **tag-chip autocomplete input** (pick existing tags from `settings/tags` or type a new tag that auto-adds for everyone) + image upload
+- [ ] Import the 30 root `"Recipe: ..."` Google Drive docs into Firebase *(skipping subfolders for now)*
 
 ## Phase 6: Weekly Family Menu & Shopping List
-- [ ] Kid-friendly visual Menu page showing recipes with photos
+- [ ] Kid-friendly visual Menu page showing `showOnMenu: true` recipes with photos
 - [ ] Playful selection animation & weekly pick state saved to Firebase so the whole household sees what was chosen
 - [ ] Auto-generated combined ingredient / grocery list from all selected meals for the week (with pantry cross-check & weekly reset)
 
@@ -55,7 +55,8 @@
 ## Phase 10: Admin Page
 - [ ] Admin page restricted to admin role (enforced via Firebase Auth + Firestore Security Rules)
 - [ ] Household member / role management (e.g., admin vs. household member / kid-friendly access)
-- [ ] Kitchen & app management tools (reset weekly menu, manage categories/storage locations, data export/backup, and additional admin tools as needs emerge)
+- [ ] **Master tag manager** (add, rename, merge, or prune tags in `settings/tags` and sync affected recipes)
+- [ ] Kitchen & app management tools (reset weekly menu, manage pantry locations, data export/backup, and additional admin tools as needs emerge)
 
 ## Phase 11: Polish & Household Deployment
 - [x] **PWA installability** — `manifest.webmanifest` (`short_name: "Mix & Make"`), iOS/Android PNG icons, service worker (`sw.js`), mobile safe-area insets, and dynamic status-bar theme color

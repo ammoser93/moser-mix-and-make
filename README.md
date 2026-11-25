@@ -4,7 +4,8 @@ A Kindle-inspired household kitchen book for **recipes**, **pantry & freezer inv
 
 ## Project Docs
 - [`TODO.md`](./TODO.md) — Feature roadmap and progress checklist
-- [`design.md`](./design.md) — Living Kindle-book theme and design system
+- [`design.md`](./design.md) — Living Kindle e-reader theme and design system
+- [`schema.md`](./schema.md) — Firestore data model and mass-update workflow
 
 ## Running Locally
 This starter prototype uses plain HTML, CSS, and JavaScript with no build step required:

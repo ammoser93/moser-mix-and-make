@@ -56,61 +56,67 @@
           <a class="top-nav__link" href="#import" data-nav="import">Import</a>
         </nav>
 
-        <!-- Kindle-style Aa Display Settings -->
-        <div class="reader-controls">
-          <button
-            type="button"
-            id="aa-toggle"
-            class="aa-button"
-            aria-expanded="false"
-            aria-controls="aa-popover"
-            title="Display settings"
-          >
-            Aa
+        <!-- Right Toolbar: Account + Kindle-style Aa Display Settings -->
+        <div class="header-actions">
+          <button type="button" id="auth-trigger" class="account-btn" title="Household account">
+            Sign in
           </button>
 
-          <div id="aa-popover" class="aa-popover" role="dialog" aria-label="Display settings" hidden>
-            <div class="aa-popover__header">
-              <span class="aa-popover__title">Display Settings</span>
-            </div>
+          <div class="reader-controls">
+            <button
+              type="button"
+              id="aa-toggle"
+              class="aa-button"
+              aria-expanded="false"
+              aria-controls="aa-popover"
+              title="Display settings"
+            >
+              Aa
+            </button>
 
-            <div class="aa-group">
-              <span class="aa-group__label">Page Theme</span>
-              <div class="aa-segment">
-                <button type="button" class="aa-option" data-pref-group="theme" data-pref-value="paper">
-                  <span class="aa-theme-swatch aa-theme-swatch--paper" aria-hidden="true"></span>Paper
-                </button>
-                <button type="button" class="aa-option" data-pref-group="theme" data-pref-value="sepia">
-                  <span class="aa-theme-swatch aa-theme-swatch--sepia" aria-hidden="true"></span>Sepia
-                </button>
-                <button type="button" class="aa-option" data-pref-group="theme" data-pref-value="night">
-                  <span class="aa-theme-swatch aa-theme-swatch--night" aria-hidden="true"></span>Night
+            <div id="aa-popover" class="aa-popover" role="dialog" aria-label="Display settings" hidden>
+              <div class="aa-popover__header">
+                <span class="aa-popover__title">Display Settings</span>
+              </div>
+
+              <div class="aa-group">
+                <span class="aa-group__label">Page Theme</span>
+                <div class="aa-segment">
+                  <button type="button" class="aa-option" data-pref-group="theme" data-pref-value="paper">
+                    <span class="aa-theme-swatch aa-theme-swatch--paper" aria-hidden="true"></span>Paper
+                  </button>
+                  <button type="button" class="aa-option" data-pref-group="theme" data-pref-value="sepia">
+                    <span class="aa-theme-swatch aa-theme-swatch--sepia" aria-hidden="true"></span>Sepia
+                  </button>
+                  <button type="button" class="aa-option" data-pref-group="theme" data-pref-value="night">
+                    <span class="aa-theme-swatch aa-theme-swatch--night" aria-hidden="true"></span>Night
+                  </button>
+                </div>
+              </div>
+
+              <div class="aa-group">
+                <span class="aa-group__label">Text Size</span>
+                <div class="aa-segment">
+                  <button type="button" class="aa-option" data-pref-group="size" data-pref-value="compact">A−</button>
+                  <button type="button" class="aa-option" data-pref-group="size" data-pref-value="standard">Standard</button>
+                  <button type="button" class="aa-option" data-pref-group="size" data-pref-value="large">A+</button>
+                </div>
+              </div>
+
+              <div class="aa-group">
+                <span class="aa-group__label">Line Spacing</span>
+                <div class="aa-segment">
+                  <button type="button" class="aa-option" data-pref-group="spacing" data-pref-value="compact">Compact</button>
+                  <button type="button" class="aa-option" data-pref-group="spacing" data-pref-value="standard">Standard</button>
+                  <button type="button" class="aa-option" data-pref-group="spacing" data-pref-value="relaxed">Relaxed</button>
+                </div>
+              </div>
+
+              <div class="aa-install-wrap" id="pwa-install-wrap" hidden>
+                <button type="button" class="btn btn--primary aa-install-btn" id="pwa-install-btn">
+                  Install App
                 </button>
               </div>
-            </div>
-
-            <div class="aa-group">
-              <span class="aa-group__label">Text Size</span>
-              <div class="aa-segment">
-                <button type="button" class="aa-option" data-pref-group="size" data-pref-value="compact">A−</button>
-                <button type="button" class="aa-option" data-pref-group="size" data-pref-value="standard">Standard</button>
-                <button type="button" class="aa-option" data-pref-group="size" data-pref-value="large">A+</button>
-              </div>
-            </div>
-
-            <div class="aa-group">
-              <span class="aa-group__label">Line Spacing</span>
-              <div class="aa-segment">
-                <button type="button" class="aa-option" data-pref-group="spacing" data-pref-value="compact">Compact</button>
-                <button type="button" class="aa-option" data-pref-group="spacing" data-pref-value="standard">Standard</button>
-                <button type="button" class="aa-option" data-pref-group="spacing" data-pref-value="relaxed">Relaxed</button>
-              </div>
-            </div>
-
-            <div class="aa-install-wrap" id="pwa-install-wrap" hidden>
-              <button type="button" class="btn btn--primary aa-install-btn" id="pwa-install-btn">
-                Install App
-              </button>
             </div>
           </div>
         </div>
@@ -124,7 +130,7 @@
     <footer class="reader-footer">
       <div class="reader-footer__inner">
         <span id="footer-section">Home</span>
-        <span>Moser Mix &amp; Make · Theme Prototype v0.2</span>
+        <span id="footer-sync-status">Moser Mix &amp; Make · Preview Mode</span>
       </div>
     </footer>
 
@@ -176,6 +182,42 @@
       </a>
     </nav>
 
+    <!-- Household Sign-In / Account Modal (Google Sign-In Only) -->
+    <div id="auth-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" hidden>
+      <div class="modal-card">
+        <div class="modal-card__head">
+          <h2 id="auth-modal-title" class="modal-card__title">Editor Sign In</h2>
+          <button type="button" class="btn btn--ghost modal-close" id="auth-modal-close" aria-label="Close">✕</button>
+        </div>
+
+        <div id="auth-signed-out-view">
+          <p class="modal-card__sub">Anyone can browse recipes in read-only mode. Sign in with an authorized Google account to add or edit recipes, pantry items, and the shared weekly menu.</p>
+
+          <button type="button" class="btn btn--primary modal-full-btn" id="auth-google-btn">
+            Continue with Google
+          </button>
+        </div>
+
+        <div id="auth-signed-in-view" hidden>
+          <p class="modal-card__sub">
+            Signed in as <strong id="auth-user-email"></strong>
+            <br />Access: <span class="tag" id="auth-user-role">checking…</span>
+          </p>
+          <p class="modal-card__hint" id="auth-role-hint"></p>
+          <button type="button" class="btn modal-full-btn" id="auth-signout-btn">Sign Out</button>
+        </div>
+
+        <p class="modal-error" id="auth-error" role="alert" hidden></p>
+      </div>
+    </div>
+
+    <!-- Firebase Compat SDK (App, Auth, Firestore) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+    <script src="js/firebase-config.js"></script>
+    <script src="js/db.js"></script>
     <script src="js/sample-data.js"></script>
     <script src="js/app.js"></script>
   </body>

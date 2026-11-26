@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// Moser Mix & Make — Firestore Security Rules
+// Public read-only for kitchen & recipe sharing; writes restricted to verified admins.
+//
+// Setup in Firebase Console:
+// 1. Authentication -> Sign-in method: enable Google, disable Email/Password.
+// 2. Firestore Database -> Data: create collection "admins" with one document per editor:
+//      Document ID: <lowercase google email>
+//      Fields:      name (string, optional)
+// 3. Firestore Database -> Rules: paste this file and click Publish.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(userEmail()));
+    }
+
+    // Recipes: anyone can read & cook; only admins can create, edit, or delete
+    match /recipes/{recipeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Weekly Menu: anyone can view; only admins save shared household picks
+    match /weeklyMenu/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Pantry & Freezer: public read-only; only admins can update
+    match /pantry/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // App Settings (settings/tags, settings/pantry): public read; admin write
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admin Allowlist: private (never publicly readable!).
+    // Signed-in users can only check their own doc; admins can list & manage all admins.
+    match /admins/{email} {
+      allow read: if isSignedIn() && (userEmail() == email || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}

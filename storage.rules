@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Moser Mix & Make — Firebase Storage Security Rules (for recipe photos)
+// Public read-only so shared recipes & Menu cards display photos; uploads restricted to admins.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.token.email.lower()));
+    }
+
+    match /recipe-photos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

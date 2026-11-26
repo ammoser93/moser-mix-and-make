@@ -154,17 +154,17 @@ Shared across the household so when kids tap meals on a tablet/phone, everyone s
 
 ---
 
-## 5. Collection: `roles/{uid}` *(Phase 4 / 10 — Security)*
+## 5. Collection: `admins/{email}` *(Feature 4 / 10 — Security)*
 
-Checked directly by Firestore Security Rules so access control is enforced server-side:
+Public read-only model with a small private list of authorized editors (Google Sign-In only, `email_verified == true`). Keyed by lowercase Google email in Firestore so **zero personal email addresses ever appear in the public Git repo**:
 ```json
 {
-  "email": "80alexmoser@gmail.com",
-  "displayName": "Alex",
-  "role": "admin"
+  "name": "Alex",
+  "updatedAt": "2026-11-25T00:00:00Z"
 }
 ```
-- `role`: `"admin"` (full access + Admin page) | `"household"` (read/write recipes, pantry, weekly menu) | `"menu-only"` *(optional kid device role — read recipes & toggle weekly menu picks only)*.
+- **Everyone (signed out or non-admin):** Full read-only access to `recipes`, `weeklyMenu`, `pantry`, and `settings` (cannot read `admins`).
+- **Admins (listed in `admins/{email}`):** Full read/write access across all collections + access to the Admin page.
 
 ---
 

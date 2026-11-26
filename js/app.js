@@ -17,9 +17,99 @@
     showGroceryList: false,
     checkedItems: new Set(),
     weeklyPicks: loadWeeklyPicks(),
+    recipes: (window.MOSER_SAMPLE_DATA?.recipes || []).map((r) => ({ ...r })),
+    masterTags: [...(window.MOSER_SAMPLE_DATA?.masterTags || [])],
     pantry: (window.MOSER_SAMPLE_DATA?.pantry || []).map((item) => ({ ...item })),
     prefs: loadPrefs(),
+    authUser: null,
+    isAdmin: false,
+    authChecked: false,
+    syncMode: "connecting", // "connecting" | "live" | "preview"
+    syncError: null,
   };
+
+  let liveUnsubs = [];
+
+  function isLive() {
+    return state.syncMode === "live";
+  }
+
+  function canEdit() {
+    return isLive() && state.isAdmin;
+  }
+
+  function stopLiveListeners() {
+    liveUnsubs.forEach((fn) => {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    });
+    liveUnsubs = [];
+  }
+
+  function startPublicLiveListeners() {
+    if (!window.MoserDB || !window.MoserDB.init()) {
+      state.syncMode = "preview";
+      return;
+    }
+
+    stopLiveListeners();
+    state.syncError = null;
+
+    let connectedOnce = false;
+    const markLive = () => {
+      if (!connectedOnce) {
+        connectedOnce = true;
+        state.syncMode = "live";
+      }
+    };
+
+    const onErr = (err) => {
+      state.syncError =
+        err?.code === "permission-denied"
+          ? "Firestore permission denied — publish firestore.rules in Firebase Console to enable public read access."
+          : err?.message || "Could not connect to Firebase.";
+      state.syncMode = "preview";
+      render();
+    };
+
+    liveUnsubs.push(
+      window.MoserDB.subscribeRecipes((list) => {
+        markLive();
+        state.syncError = null;
+        state.recipes = list;
+        render();
+      }, onErr)
+    );
+
+    liveUnsubs.push(
+      window.MoserDB.subscribeMasterTags((tags) => {
+        markLive();
+        state.masterTags = tags;
+        render();
+      }, onErr)
+    );
+
+    liveUnsubs.push(
+      window.MoserDB.subscribeWeeklyMenu((menu) => {
+        markLive();
+        if (state.isAdmin || (menu.recipeIds && menu.recipeIds.length)) {
+          state.weeklyPicks = new Set(menu.recipeIds || []);
+        }
+        render();
+      }, onErr)
+    );
+
+    liveUnsubs.push(
+      window.MoserDB.subscribePantry((items) => {
+        markLive();
+        state.pantry = items;
+        render();
+      }, onErr)
+    );
+  }
 
   const SECTION_LABELS = {
     home: "Home",
@@ -66,6 +156,13 @@
   }
 
   function saveWeeklyPicks() {
+    if (canEdit() && window.MoserDB) {
+      window.MoserDB.saveWeeklyMenu({ recipeIds: [...state.weeklyPicks] }).catch((err) => {
+        state.syncError = err?.message || "Could not save weekly menu picks.";
+        render();
+      });
+      return;
+    }
     try {
       localStorage.setItem(PICKS_KEY, JSON.stringify([...state.weeklyPicks]));
     } catch {
@@ -136,6 +233,141 @@
       deferredInstallPrompt = null;
       wrap.hidden = true;
     });
+  }
+
+  function openAuthModal() {
+    const modal = document.getElementById("auth-modal");
+    const errEl = document.getElementById("auth-error");
+    if (!modal) return;
+    if (errEl) {
+      errEl.hidden = true;
+      errEl.textContent = "";
+    }
+    syncAuthUI();
+    modal.hidden = false;
+  }
+
+  function closeAuthModal() {
+    const modal = document.getElementById("auth-modal");
+    if (modal) modal.hidden = true;
+  }
+
+  function syncAuthUI() {
+    const trigger = document.getElementById("auth-trigger");
+    const footerStatus = document.getElementById("footer-sync-status");
+    const signedOutView = document.getElementById("auth-signed-out-view");
+    const signedInView = document.getElementById("auth-signed-in-view");
+    const emailEl = document.getElementById("auth-user-email");
+    const roleEl = document.getElementById("auth-user-role");
+    const hintEl = document.getElementById("auth-role-hint");
+    const titleEl = document.getElementById("auth-modal-title");
+
+    if (state.authUser) {
+      const shortName =
+        state.authUser.displayName?.split(" ")[0] ||
+        state.authUser.email?.split("@")[0] ||
+        "Account";
+
+      if (trigger) {
+        trigger.classList.add("is-signed-in");
+        trigger.innerHTML = `<span class="account-dot" aria-hidden="true"></span><span>${escapeHtml(shortName)}</span>`;
+      }
+      if (footerStatus) {
+        footerStatus.textContent = canEdit()
+          ? "Moser Mix & Make · Editor Mode (Synced)"
+          : isLive()
+          ? "Moser Mix & Make · Read-Only"
+          : "Moser Mix & Make · Offline Preview";
+      }
+      if (signedOutView) signedOutView.hidden = true;
+      if (signedInView) signedInView.hidden = false;
+      if (titleEl) titleEl.textContent = "Account";
+      if (emailEl) emailEl.textContent = state.authUser.email || "";
+      if (roleEl) roleEl.textContent = state.isAdmin ? "Admin (Edit Access)" : "Read-Only";
+      if (hintEl) {
+        hintEl.textContent = state.isAdmin
+          ? "You have full edit access — changes sync live across devices."
+          : "Signed in with read-only access. Only accounts listed in Firebase's admins collection can make edits.";
+      }
+    } else {
+      if (trigger) {
+        trigger.classList.remove("is-signed-in");
+        trigger.textContent = "Sign in";
+      }
+      if (footerStatus) {
+        footerStatus.textContent = isLive()
+          ? "Moser Mix & Make · Read-Only"
+          : "Moser Mix & Make · Preview Mode";
+      }
+      if (signedOutView) signedOutView.hidden = false;
+      if (signedInView) signedInView.hidden = true;
+      if (titleEl) titleEl.textContent = "Editor Sign In";
+    }
+  }
+
+  function initAuth() {
+    const trigger = document.getElementById("auth-trigger");
+    const modal = document.getElementById("auth-modal");
+    const closeBtn = document.getElementById("auth-modal-close");
+    const googleBtn = document.getElementById("auth-google-btn");
+    const signOutBtn = document.getElementById("auth-signout-btn");
+    const errEl = document.getElementById("auth-error");
+
+    const showErr = (msg) => {
+      if (!errEl) return;
+      errEl.textContent = msg;
+      errEl.hidden = !msg;
+    };
+
+    trigger?.addEventListener("click", openAuthModal);
+    closeBtn?.addEventListener("click", closeAuthModal);
+    modal?.addEventListener("click", (e) => {
+      if (e.target === modal) closeAuthModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal && !modal.hidden) closeAuthModal();
+    });
+
+    googleBtn?.addEventListener("click", async () => {
+      showErr("");
+      try {
+        await window.MoserDB.signInWithGoogle();
+        closeAuthModal();
+      } catch (err) {
+        showErr(err?.message || "Google sign-in failed.");
+      }
+    });
+
+    signOutBtn?.addEventListener("click", async () => {
+      await window.MoserDB.signOut();
+      closeAuthModal();
+    });
+
+    startPublicLiveListeners();
+
+    if (window.MoserDB) {
+      window.MoserDB.onAuthChange(({ user, isAdmin, error }) => {
+        state.authChecked = true;
+        state.authUser = user;
+        state.isAdmin = Boolean(isAdmin);
+        if (error) state.syncError = error;
+
+        syncAuthUI();
+        render();
+      });
+    }
+  }
+
+  function renderStatusBanner() {
+    if (state.syncError) {
+      return `
+        <div class="status-banner" role="status">
+          <span><strong>Firebase Notice:</strong> ${escapeHtml(state.syncError)}</span>
+          <button type="button" class="btn" data-open-auth>Account</button>
+        </div>`;
+    }
+
+    return "";
   }
 
   function initReaderPopover() {
@@ -343,42 +575,50 @@
     const isWide = state.route === "menu" || state.route === "recipe" || state.route === "pantry";
     stage.classList.toggle("reader-stage--wide", isWide);
 
+    const banner = renderStatusBanner();
+
     switch (state.route) {
       case "menu":
-        stage.innerHTML = renderMenuView();
+        stage.innerHTML = banner + renderMenuView();
         bindMenuEvents(stage);
         break;
       case "recipes":
-        stage.innerHTML = renderRecipesView();
+        stage.innerHTML = banner + renderRecipesView();
         bindRecipesEvents(stage);
         break;
       case "recipe":
-        stage.innerHTML = renderRecipeDetailView(state.recipeId);
+        stage.innerHTML = banner + renderRecipeDetailView(state.recipeId);
         bindRecipeDetailEvents(stage);
         break;
       case "pantry":
-        stage.innerHTML = renderPantryView();
+        stage.innerHTML = banner + renderPantryView();
         bindPantryEvents(stage);
         break;
       case "frameworks":
-        stage.innerHTML = renderFrameworksView();
+        stage.innerHTML = banner + renderFrameworksView();
         bindFrameworksEvents(stage);
         break;
       case "import":
-        stage.innerHTML = renderImportView();
+        stage.innerHTML = banner + renderImportView();
         break;
       default:
-        stage.innerHTML = renderHomeView();
+        stage.innerHTML = banner + renderHomeView();
         break;
     }
 
+    stage.querySelectorAll("[data-open-auth]").forEach((btn) => {
+      btn.addEventListener("click", openAuthModal);
+    });
+
     syncNavUI();
+    syncAuthUI();
   }
 
   function renderHomeView() {
-    const recipesCount = (window.MOSER_SAMPLE_DATA?.recipes || []).length;
+    const recipesCount = state.recipes.length;
     const lowCount = state.pantry.filter((p) => p.status !== "ok").length;
     const picksCount = state.weeklyPicks.size;
+    const firstRecipe = state.recipes[0];
 
     return `
       <header class="home-hero">
@@ -411,7 +651,7 @@
                 <span class="home-nav-link__title">Recipes</span>
                 <span class="home-nav-link__desc">Browse, search, and cook from distraction-free recipe pages</span>
               </div>
-              <span class="home-nav-link__right">${recipesCount} samples →</span>
+              <span class="home-nav-link__right">${recipesCount} ${isLive() ? "saved" : "samples"} →</span>
             </a>
           </li>
           <li class="home-nav-item">
@@ -454,10 +694,10 @@
             <h3 class="eink-card__title">${picksCount ? `${picksCount} Meal${picksCount === 1 ? "" : "s"} Picked This Week` : "Build This Week's Menu"}</h3>
             <p class="eink-card__body">Tap recipe cards to pick meals for the week and pull a combined ingredient list.</p>
           </a>
-          <a class="eink-card eink-card--interactive" href="#recipe/sheet-pan-lemon-chicken">
-            <span class="eink-card__meta">Cooking View Preview</span>
-            <h3 class="eink-card__title">Crispy Lemon &amp; Herb Chicken</h3>
-            <p class="eink-card__body">Check off ingredients and steps as you cook, and test the Aa display controls.</p>
+          <a class="eink-card eink-card--interactive" href="${firstRecipe ? `#recipe/${encodeURIComponent(firstRecipe.id)}` : "#recipes"}">
+            <span class="eink-card__meta">${isLive() ? "Recipe Book" : "Cooking View Preview"}</span>
+            <h3 class="eink-card__title">${firstRecipe ? escapeHtml(firstRecipe.title) : "Ready for Your Recipes"}</h3>
+            <p class="eink-card__body">${firstRecipe ? "Check off ingredients and steps as you cook, and test the Aa display controls." : "Connected to Firebase! Import your Google Drive recipes in Phase 5."}</p>
           </a>
           <a class="eink-card eink-card--interactive" href="#pantry">
             <span class="eink-card__meta">Pantry Snapshot</span>
@@ -491,7 +731,7 @@
   }
 
   function renderMenuView() {
-    const allRecipes = window.MOSER_SAMPLE_DATA?.recipes || [];
+    const allRecipes = state.recipes;
     const menuRecipes = allRecipes.filter((r) => r.showOnMenu !== false);
     const availableTags = ["All", ...new Set(menuRecipes.flatMap((r) => getRecipeTags(r)))];
     const filtered = menuRecipes.filter(
@@ -530,39 +770,46 @@
       </div>
 
       <div class="menu-grid">
-        ${filtered
-          .map((r) => {
-            const picked = state.weeklyPicks.has(r.id);
-            const timeLabel = formatMetaTime(r.meta);
-            const primaryTag = getRecipeTags(r)[0] || "Recipe";
-            return `
-              <article class="menu-card ${picked ? "is-picked" : ""}" data-menu-card="${escapeHtml(r.id)}">
-                <div class="menu-card__media">
-                  ${renderDishArtwork(r.illustration)}
-                  <span class="menu-card__stamp" aria-hidden="${!picked}">✓ On This Week's Menu</span>
-                </div>
-                <div class="menu-card__body">
-                  <div class="menu-card__top-meta">
-                    <span class="tag">${escapeHtml(primaryTag)}</span>
-                    ${timeLabel ? `<span>${escapeHtml(timeLabel)}</span>` : ""}
-                  </div>
-                  <h2 class="menu-card__title">${escapeHtml(r.title)}</h2>
-                  <p class="menu-card__desc">${escapeHtml(r.subtitle || "")}</p>
-                  <div class="menu-card__actions">
-                    <button
-                      type="button"
-                      class="pick-btn"
-                      data-pick-recipe="${escapeHtml(r.id)}"
-                      aria-pressed="${picked}"
-                    >
-                      ${picked ? "✓ Picked!" : "+ Pick This Meal"}
-                    </button>
-                    <a class="menu-card__view-link" href="#recipe/${encodeURIComponent(r.id)}">Recipe →</a>
-                  </div>
-                </div>
-              </article>`;
-          })
-          .join("")}
+        ${
+          filtered.length
+            ? filtered
+                .map((r) => {
+                  const picked = state.weeklyPicks.has(r.id);
+                  const timeLabel = formatMetaTime(r.meta);
+                  const primaryTag = getRecipeTags(r)[0] || "Recipe";
+                  const mediaHtml = r.imageUrl
+                    ? `<img class="menu-card__art" src="${escapeHtml(r.imageUrl)}" alt="${escapeHtml(r.title)}" style="object-fit:cover;" />`
+                    : renderDishArtwork(r.illustration);
+                  return `
+                    <article class="menu-card ${picked ? "is-picked" : ""}" data-menu-card="${escapeHtml(r.id)}">
+                      <div class="menu-card__media">
+                        ${mediaHtml}
+                        <span class="menu-card__stamp" aria-hidden="${!picked}">✓ On This Week's Menu</span>
+                      </div>
+                      <div class="menu-card__body">
+                        <div class="menu-card__top-meta">
+                          <span class="tag">${escapeHtml(primaryTag)}</span>
+                          ${timeLabel ? `<span>${escapeHtml(timeLabel)}</span>` : ""}
+                        </div>
+                        <h2 class="menu-card__title">${escapeHtml(r.title)}</h2>
+                        <p class="menu-card__desc">${escapeHtml(r.subtitle || "")}</p>
+                        <div class="menu-card__actions">
+                          <button
+                            type="button"
+                            class="pick-btn"
+                            data-pick-recipe="${escapeHtml(r.id)}"
+                            aria-pressed="${picked}"
+                          >
+                            ${picked ? "✓ Picked!" : "+ Pick This Meal"}
+                          </button>
+                          <a class="menu-card__view-link" href="#recipe/${encodeURIComponent(r.id)}">Recipe →</a>
+                        </div>
+                      </div>
+                    </article>`;
+                })
+                .join("")
+            : `<p class="empty-state" style="grid-column:1/-1;">${isLive() ? "Connected to Firebase! No menu recipes yet — we'll import your Google Drive recipes in Phase 5." : "No meals match this filter."}</p>`
+        }
       </div>
 
       ${
@@ -694,7 +941,7 @@
      ------------------------------------------------------------------------ */
 
   function renderRecipesView() {
-    const recipes = window.MOSER_SAMPLE_DATA?.recipes || [];
+    const recipes = state.recipes;
     const allTags = ["All", ...new Set(recipes.flatMap((r) => getRecipeTags(r)))];
     const q = state.recipeSearch.trim().toLowerCase();
 
@@ -729,13 +976,17 @@
           </li>`;
           })
           .join("")
-      : `<li class="empty-state">No recipes match "${escapeHtml(state.recipeSearch)}".</li>`;
+      : `<li class="empty-state">${
+          recipes.length === 0 && isLive()
+            ? "Connected to Firebase! Your recipe book is empty and ready for Phase 5's Google Drive import & Add Recipe form."
+            : `No recipes match "${escapeHtml(state.recipeSearch)}".`
+        }</li>`;
 
     return `
       <header class="page-head page-head--row">
         <div>
           <h1 class="page-title">Recipes</h1>
-          <p class="page-subtitle">Sample entries using our finalized schema — real Google Drive recipes import in Phase 5.</p>
+          <p class="page-subtitle">${isLive() ? `${recipes.length} recipes synced with Firebase.` : "Sample entries using our finalized schema — sign in to sync with Firebase."}</p>
         </div>
         <button type="button" class="btn btn--primary" id="mock-add-recipe">+ Add Recipe</button>
       </header>
@@ -792,7 +1043,7 @@
   }
 
   function renderRecipeDetailView(recipeId) {
-    const recipes = window.MOSER_SAMPLE_DATA?.recipes || [];
+    const recipes = state.recipes;
     const recipe = recipes.find((r) => r.id === recipeId) || recipes[0];
     if (!recipe) return `<p class="empty-state">Recipe not found.</p>`;
 
@@ -974,22 +1225,30 @@
           </tr>
         </thead>
         <tbody>
-          ${items
-            .map((item) => {
-              const s = statusMeta[item.status] || statusMeta.ok;
-              return `
-                <tr>
-                  <td class="ledger-table__name">${escapeHtml(item.name)}</td>
-                  <td><span class="tag">${escapeHtml(item.location)}</span></td>
-                  <td class="ledger-table__qty">${escapeHtml(item.qty)}</td>
-                  <td>
-                    <button type="button" class="status-btn ${s.cls}" data-pantry-id="${item.id}" title="Click to cycle status">
-                      ${s.label}
-                    </button>
-                  </td>
-                </tr>`;
-            })
-            .join("")}
+          ${
+            items.length
+              ? items
+                  .map((item) => {
+                    const s = statusMeta[item.status] || statusMeta.ok;
+                    return `
+                      <tr>
+                        <td class="ledger-table__name">${escapeHtml(item.name)}</td>
+                        <td><span class="tag">${escapeHtml(item.location)}</span></td>
+                        <td class="ledger-table__qty">${escapeHtml(item.qty)}</td>
+                        <td>
+                          <button type="button" class="status-btn ${s.cls}" data-pantry-id="${escapeHtml(item.id)}" title="Click to cycle status">
+                            ${s.label}
+                          </button>
+                        </td>
+                      </tr>`;
+                  })
+                  .join("")
+              : `<tr><td colspan="4" class="empty-state">${
+                  isLive()
+                    ? "Connected to Firebase! Your pantry list is empty and ready for Phase 7."
+                    : "No items in this location."
+                }</td></tr>`
+          }
         </tbody>
       </table>
     `;
@@ -1007,10 +1266,20 @@
 
     stage.querySelectorAll("[data-pantry-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const id = Number(btn.dataset.pantryId);
-        const item = state.pantry.find((p) => p.id === id);
+        const id = String(btn.dataset.pantryId);
+        const item = state.pantry.find((p) => String(p.id) === id);
         if (!item) return;
+        if (isLive() && !canEdit()) {
+          openAuthModal();
+          return;
+        }
         item.status = order[(order.indexOf(item.status) + 1) % order.length];
+        if (canEdit() && window.MoserDB) {
+          window.MoserDB.savePantryItem(item).catch((err) => {
+            state.syncError = err?.message || "Could not update pantry item.";
+            render();
+          });
+        }
         render();
       });
     });
@@ -1146,6 +1415,7 @@
     applyPrefs();
     initReaderPopover();
     initPWA();
+    initAuth();
     handleRouteChange();
     window.addEventListener("hashchange", handleRouteChange);
   });

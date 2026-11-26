@@ -1571,10 +1571,38 @@
     window.scrollTo(0, 0);
   }
 
+  async function initBuildVersion() {
+    const el = document.getElementById("footer-version");
+    if (!el) return;
+    try {
+      const res = await fetch("./version.json", { cache: "no-store" });
+      if (!res.ok) return;
+      const info = await res.json();
+      if (!info?.sha || info.sha.includes("{{")) return;
+
+      el.textContent = info.sha;
+      if (info.fullSha && info.repoUrl) {
+        el.href = `${info.repoUrl}/commit/${info.fullSha}`;
+      }
+      const parts = [];
+      if (info.message) parts.push(info.message);
+      if (info.deployedAt) {
+        const dt = new Date(info.deployedAt);
+        if (!Number.isNaN(dt.getTime())) {
+          parts.push(`Deployed ${dt.toLocaleString()}`);
+        }
+      }
+      if (parts.length) el.title = parts.join(" — ");
+    } catch {
+      /* ignore when opened directly via file:// */
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     applyPrefs();
     initReaderPopover();
     initPWA();
+    initBuildVersion();
     initAuth();
     handleRouteChange();
     window.addEventListener("hashchange", handleRouteChange);

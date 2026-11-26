@@ -1,0 +1,9 @@
+---
+layout: null
+---
+{
+  "sha": "{{ site.github.build_revision | slice: 0, 7 }}",
+  "fullSha": "{{ site.github.build_revision }}",
+  "deployedAt": "{{ site.time | date_to_xmlschema }}",
+  "repoUrl": "{{ site.github.repository_url }}"
+}

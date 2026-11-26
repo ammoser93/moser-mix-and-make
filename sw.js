@@ -9,6 +9,7 @@ const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
+  "./version.json",
   "./css/tokens.css",
   "./css/styles.css",
   "./js/firebase-config.js",

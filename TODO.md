@@ -27,14 +27,13 @@
 - [x] **Disable Email/Password, create `admins` docs, publish `firestore.rules`, and verify live sync**
 
 ## Feature 5: Recipe Book
-- [x] **Recipe library view** (browse, search, filter by tags — live from Firestore)
+- [x] **Recipe library view** (browse, search, sort by name/date added/recently updated, filter by tags — live from Firestore)
 - [x] **Distraction-free cooking / reading view** (checkable ingredients/steps, Screen Wake Lock toggle, Edit button for admins, dish photo header)
-- [x] **Add & edit recipe forms** (`js/recipe-form.js`) with **tag-chip autocomplete input** (`settings/tags` + create new), photo upload/compression, grouped ingredients & instructions, nested sub-steps, and delete support
-- [x] **Export & parse 30 root `"Recipe: ..."` Google Drive docs** into schema-matched JSON (`import/drive-recipes-import.json`) + built 1-click **Import JSON** tool in the Recipes header
-- [ ] **Run 1-click Import JSON in the app & verify recipes in Firebase** *(current step)*
+- [x] **Add & edit recipe forms** (`js/recipe-form.js`) with sticky Save/Cancel bar, **tag-chip autocomplete input** (`settings/tags` + create new), photo upload/compression, grouped ingredients & instructions, nested sub-steps, and safe bottom Delete button
+- [x] **Export, parse, & import all 30 root `"Recipe: ..."` Google Drive docs** into Firebase
 
 ## Feature 6: Weekly Family Menu & Shopping List
-- [ ] Kid-friendly visual Menu page showing `showOnMenu: true` recipes with photos
+- [ ] **Kid-friendly visual Menu page** showing `showOnMenu: true` recipes with photos *(next up)*
 - [ ] Playful selection animation & weekly pick state saved to Firebase so the whole household sees what was chosen
 - [ ] Auto-generated combined ingredient / grocery list from all selected meals for the week (with pantry cross-check & weekly reset)
 

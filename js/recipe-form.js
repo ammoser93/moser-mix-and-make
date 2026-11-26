@@ -113,7 +113,13 @@
     const instGroups = r.instructionGroups?.length ? r.instructionGroups : [{ label: "", steps: [] }];
 
     return `
-      <a class="back-link" href="${isEdit ? `#recipe/${encodeURIComponent(r.id)}` : "#recipes"}">← Back</a>
+      <div class="editor-sticky-bar">
+        <a class="btn btn--ghost btn--sm" href="${isEdit ? `#recipe/${encodeURIComponent(r.id)}` : "#recipes"}">Cancel</a>
+        <span class="editor-sticky-bar__title">${isEdit ? "Edit Recipe" : "New Recipe"}</span>
+        <button type="submit" form="recipe-editor-form" class="btn btn--primary btn--sm" data-rf-save-btn>
+          ${isEdit ? "Save" : "Save Recipe"}
+        </button>
+      </div>
 
       <header class="page-head">
         <h1 class="page-title">${isEdit ? "Edit Recipe" : "New Recipe"}</h1>
@@ -243,7 +249,7 @@
 
         <div class="form-actions">
           <div class="form-actions__left">
-            <button type="submit" class="btn btn--primary" id="rf-save-btn">
+            <button type="submit" class="btn btn--primary" data-rf-save-btn>
               ${isEdit ? "Save Changes" : "Save Recipe"}
             </button>
             <a class="btn btn--ghost" href="${isEdit ? `#recipe/${encodeURIComponent(r.id)}` : "#recipes"}">Cancel</a>
@@ -536,17 +542,22 @@
         createdAt: isEdit ? recipe?.createdAt : undefined,
       };
 
-      const saveBtn = stage.querySelector("#rf-save-btn");
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Saving…";
+      const saveBtns = [...stage.querySelectorAll("[data-rf-save-btn]")];
+      saveBtns.forEach((b) => {
+        b.disabled = true;
+        b.dataset.origLabel = b.textContent;
+        b.textContent = "Saving…";
+      });
 
       try {
         const saved = await window.MoserDB.saveRecipe(payload);
         onSaved(saved);
       } catch (err) {
         showErr(err?.message || "Could not save recipe to Firebase.");
-        saveBtn.disabled = false;
-        saveBtn.textContent = isEdit ? "Save Changes" : "Save Recipe";
+        saveBtns.forEach((b) => {
+          b.disabled = false;
+          b.textContent = b.dataset.origLabel || "Save";
+        });
       }
     });
 

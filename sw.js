@@ -4,7 +4,7 @@
    keeping updates fresh (network-first for app shell files).
    ========================================================================== */
 
-const CACHE_NAME = "moser-mix-and-make-v6";
+const CACHE_NAME = "moser-mix-and-make-v9";
 const APP_SHELL = [
   "./",
   "./index.html",

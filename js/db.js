@@ -6,7 +6,7 @@
 
 (function () {
   const DEFAULT_TAGS = [
-    "Mains",
+    "Entrees",
     "Sides",
     "Breakfast",
     "Bread & Dough",
@@ -282,6 +282,32 @@
     await db.collection("settings").doc("tags").set({ items: clean, updatedAt: nowIso() }, { merge: true });
   }
 
+  async function renameTag(oldTag, newTag) {
+    if (!init()) throw new Error("Firebase not initialized.");
+    const from = String(oldTag || "").trim();
+    const to = String(newTag || "").trim();
+    if (!from || !to || from === to) return 0;
+
+    const now = nowIso();
+    const snap = await db.collection("recipes").where("tags", "array-contains", from).get();
+    const batch = db.batch();
+
+    snap.docs.forEach((doc) => {
+      const curr = Array.isArray(doc.data()?.tags) ? doc.data().tags : [];
+      const next = [...new Set(curr.map((t) => (t === from ? to : t)))];
+      batch.update(doc.ref, { tags: next, updatedAt: now });
+    });
+
+    const tagsRef = db.collection("settings").doc("tags");
+    const tagsSnap = await tagsRef.get();
+    const master = tagsSnap.exists && Array.isArray(tagsSnap.data()?.items) ? tagsSnap.data().items : DEFAULT_TAGS;
+    const nextMaster = [...new Set(master.map((t) => (t === from ? to : t)))];
+    batch.set(tagsRef, { items: nextMaster, updatedAt: now }, { merge: true });
+
+    await batch.commit();
+    return snap.size;
+  }
+
   /* ------------------------------------------------------------------------
      Weekly Menu (weeklyMenu/current)
      ------------------------------------------------------------------------ */
@@ -402,6 +428,7 @@
     batchImportRecipes,
     subscribeMasterTags,
     saveMasterTags,
+    renameTag,
     subscribeWeeklyMenu,
     saveWeeklyMenu,
     subscribePantry,

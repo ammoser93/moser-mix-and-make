@@ -9,7 +9,7 @@
 
 Unlike a normalized SQL database (separate `recipes`, `tags`, and `recipe_tags` join tables), **Firestore** stores self-contained JSON documents in collections so a page loads in 1 read with zero joins:
 
-- Each recipe stores its own `tags: ["Mains", "Sourdough"]` array directly for instant rendering and `array-contains` filtering.
+- Each recipe stores its own `tags: ["Entrees", "Sourdough"]` array directly for instant rendering and `array-contains` filtering.
 - A single lightweight document (`settings/tags`) holds the master tag list for autocomplete/chip selection. When anyone adds a brand-new tag on a recipe, the app appends it via Firestore `arrayUnion()`, immediately making it available to everyone else.
 - The Admin page can rename, merge, or clean up tags in `settings/tags` (and batch-update matching recipes).
 
@@ -24,7 +24,7 @@ Matches the household Google Drive template (**Title → Ingredients → Instruc
   "id": "pizza-dough-50-50",
   "title": "Pizza Dough (50/50 Blend or All-Purpose)",
   "subtitle": "",
-  "tags": ["Mains", "Bread & Dough", "Freezer-Friendly"],
+  "tags": ["Entrees", "Bread & Dough", "Freezer-Friendly"],
   "showOnMenu": true,
 
   "ingredientGroups": [
@@ -101,7 +101,7 @@ Single lightweight master tag list powering the token/chip autocomplete input an
 ```json
 {
   "items": [
-    "Mains",
+    "Entrees",
     "Sides",
     "Breakfast",
     "Bread & Dough",

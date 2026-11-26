@@ -7,7 +7,7 @@
 
 window.MOSER_SAMPLE_DATA = {
   masterTags: [
-    "Mains",
+    "Entrees",
     "Sides",
     "Breakfast",
     "Bread & Dough",
@@ -23,7 +23,7 @@ window.MOSER_SAMPLE_DATA = {
       id: "sheet-pan-lemon-chicken",
       title: "Crispy Lemon & Herb Chicken",
       subtitle: "Golden roasted chicken thighs, Yukon potatoes, and blistered green beans",
-      tags: ["Mains"],
+      tags: ["Entrees"],
       showOnMenu: true,
       illustration: "chicken",
       meta: {
@@ -65,7 +65,7 @@ window.MOSER_SAMPLE_DATA = {
       id: "homemade-hamburger-helper",
       title: "Homemade Hamburger Helper (Sample)",
       subtitle: "Weeknight skillet pasta with a make-ahead pantry spice mix",
-      tags: ["Mains", "Mixes & Sauces"],
+      tags: ["Entrees", "Mixes & Sauces"],
       showOnMenu: true,
       illustration: "pasta",
       meta: {
@@ -114,7 +114,7 @@ window.MOSER_SAMPLE_DATA = {
       id: "grandma-spaghetti-sample",
       title: "Spaghetti (Parallel Steps Demo)",
       subtitle: "Simple weeknight spaghetti showcasing nested sub-steps",
-      tags: ["Mains"],
+      tags: ["Entrees"],
       showOnMenu: true,
       illustration: "tacos",
       meta: {
@@ -159,7 +159,7 @@ window.MOSER_SAMPLE_DATA = {
       id: "pizza-dough-50-50-sample",
       title: "Pizza Dough (50/50 Blend)",
       subtitle: "No-knead overnight dough with make-ahead freezer pizza instructions",
-      tags: ["Mains", "Bread & Dough", "Freezer-Friendly"],
+      tags: ["Entrees", "Bread & Dough", "Freezer-Friendly"],
       showOnMenu: true,
       illustration: "sourdough",
       meta: {

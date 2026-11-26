@@ -11,6 +11,7 @@
     recipeId: null,
     recipeSearch: "",
     recipeCategory: "All",
+    recipeSort: "name-asc",
     menuCategory: "All",
     pantryFilter: "All",
     chiliMeatLbs: 2.0,
@@ -1051,16 +1052,37 @@
     const allTags = ["All", ...new Set(recipes.flatMap((r) => getRecipeTags(r)))];
     const q = state.recipeSearch.trim().toLowerCase();
 
-    const filtered = recipes.filter((r) => {
-      const tags = getRecipeTags(r);
-      const tagOk = state.recipeCategory === "All" || tags.includes(state.recipeCategory);
-      const searchOk =
-        !q ||
-        r.title.toLowerCase().includes(q) ||
-        (r.subtitle || "").toLowerCase().includes(q) ||
-        tags.some((t) => t.toLowerCase().includes(q));
-      return tagOk && searchOk;
-    });
+    const filtered = recipes
+      .filter((r) => {
+        const tags = getRecipeTags(r);
+        const tagOk = state.recipeCategory === "All" || tags.includes(state.recipeCategory);
+        const searchOk =
+          !q ||
+          r.title.toLowerCase().includes(q) ||
+          (r.subtitle || "").toLowerCase().includes(q) ||
+          tags.some((t) => t.toLowerCase().includes(q));
+        return tagOk && searchOk;
+      })
+      .sort((a, b) => {
+        const nameCmp = (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" });
+        const createdA = a.createdAt || "";
+        const createdB = b.createdAt || "";
+        const updatedA = a.updatedAt || createdA;
+        const updatedB = b.updatedAt || createdB;
+
+        switch (state.recipeSort) {
+          case "name-desc":
+            return -nameCmp;
+          case "date-desc":
+            return createdB.localeCompare(createdA) || nameCmp;
+          case "date-asc":
+            return createdA.localeCompare(createdB) || nameCmp;
+          case "updated-desc":
+            return updatedB.localeCompare(updatedA) || nameCmp;
+          default:
+            return nameCmp;
+        }
+      });
 
     const rows = filtered.length
       ? filtered
@@ -1108,14 +1130,23 @@
       </header>
 
       <div class="toolbar">
-        <input
-          type="search"
-          id="recipe-search"
-          class="search-input"
-          placeholder="Search recipes by title or tag…"
-          value="${escapeHtml(state.recipeSearch)}"
-          aria-label="Search recipes"
-        />
+        <div class="toolbar__controls">
+          <input
+            type="search"
+            id="recipe-search"
+            class="search-input"
+            placeholder="Search recipes by title or tag…"
+            value="${escapeHtml(state.recipeSearch)}"
+            aria-label="Search recipes"
+          />
+          <select id="recipe-sort" class="sort-select" aria-label="Sort recipes">
+            <option value="name-asc" ${state.recipeSort === "name-asc" ? "selected" : ""}>Sort: Name (A–Z)</option>
+            <option value="name-desc" ${state.recipeSort === "name-desc" ? "selected" : ""}>Sort: Name (Z–A)</option>
+            <option value="date-desc" ${state.recipeSort === "date-desc" ? "selected" : ""}>Sort: Newest Added</option>
+            <option value="date-asc" ${state.recipeSort === "date-asc" ? "selected" : ""}>Sort: Oldest Added</option>
+            <option value="updated-desc" ${state.recipeSort === "updated-desc" ? "selected" : ""}>Sort: Recently Updated</option>
+          </select>
+        </div>
         <div class="pill-bar" role="group" aria-label="Filter by tag">
           ${allTags
             .map(
@@ -1145,6 +1176,11 @@
         }
       });
     }
+
+    stage.querySelector("#recipe-sort")?.addEventListener("change", (e) => {
+      state.recipeSort = e.target.value;
+      render();
+    });
 
     stage.querySelectorAll("[data-cat]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1580,21 +1616,28 @@
       const info = await res.json();
       if (!info?.sha || info.sha.includes("{{")) return;
 
-      el.textContent = info.sha;
-      if (info.fullSha && info.repoUrl) {
+      let label = info.sha;
+      let dt = null;
+      if (info.deployedAt && !info.deployedAt.includes("{{")) {
+        const parsed = new Date(info.deployedAt);
+        if (!Number.isNaN(parsed.getTime())) {
+          dt = parsed;
+          const datePart = `${dt.getMonth() + 1}/${dt.getDate()}`;
+          const timePart = dt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          label = `${datePart} ${timePart} · ${info.sha}`;
+        }
+      }
+
+      el.textContent = label;
+      if (info.fullSha && info.repoUrl && !info.fullSha.includes("{{")) {
         el.href = `${info.repoUrl}/commit/${info.fullSha}`;
       }
       const parts = [];
       if (info.message) parts.push(info.message);
-      if (info.deployedAt) {
-        const dt = new Date(info.deployedAt);
-        if (!Number.isNaN(dt.getTime())) {
-          parts.push(`Deployed ${dt.toLocaleString()}`);
-        }
-      }
+      if (dt) parts.push(`Deployed ${dt.toLocaleString()}`);
       if (parts.length) el.title = parts.join(" — ");
     } catch {
-      /* ignore when opened directly via file:// */
+      /* ignore when opened directly via file:// or unrendered local front matter */
     }
   }
 

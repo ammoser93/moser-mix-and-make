@@ -1,0 +1,6 @@
+# Local one-time import/export files
+import/
+
+# OS & editor files
+.DS_Store
+Thumbs.db

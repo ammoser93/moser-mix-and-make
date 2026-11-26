@@ -24,13 +24,14 @@
 - [x] **Create Firebase project (`moser-mix-and-make`)** with Firestore and Google Sign-In enabled
 - [x] **Finalize simplified Security Rules** (`firestore.rules` & `storage.rules`: public read-only, verified Google `admins/{email}` write access, zero personal emails in Git)
 - [x] **Wire up Firebase SDK and JS data layer** (`js/firebase-config.js`, `js/db.js`, Google-only sign-in modal & live public-read / admin-write Firestore sync)
-- [ ] **Disable Email/Password, create `admins` docs, publish `firestore.rules`, and verify live sync** *(current step)*
+- [x] **Disable Email/Password, create `admins` docs, publish `firestore.rules`, and verify live sync**
 
 ## Feature 5: Recipe Book
-- [ ] Recipe library view (browse, search, filter by tags)
-- [ ] Distraction-free cooking / reading view (checkable ingredients/steps, screen wake-lock while cooking)
-- [ ] Add & edit recipe forms with **tag-chip autocomplete input** (pick existing tags from `settings/tags` or type a new tag that auto-adds for everyone) + image upload
-- [ ] Import the 30 root `"Recipe: ..."` Google Drive docs into Firebase *(skipping subfolders for now)*
+- [x] **Recipe library view** (browse, search, filter by tags — live from Firestore)
+- [x] **Distraction-free cooking / reading view** (checkable ingredients/steps, Screen Wake Lock toggle, Edit button for admins, dish photo header)
+- [x] **Add & edit recipe forms** (`js/recipe-form.js`) with **tag-chip autocomplete input** (`settings/tags` + create new), photo upload/compression, grouped ingredients & instructions, nested sub-steps, and delete support
+- [x] **Export & parse 30 root `"Recipe: ..."` Google Drive docs** into schema-matched JSON (`import/drive-recipes-import.json`) + built 1-click **Import JSON** tool in the Recipes header
+- [ ] **Run 1-click Import JSON in the app & verify recipes in Firebase** *(current step)*
 
 ## Feature 6: Weekly Family Menu & Shopping List
 - [ ] Kid-friendly visual Menu page showing `showOnMenu: true` recipes with photos

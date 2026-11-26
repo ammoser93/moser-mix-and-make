@@ -116,10 +116,65 @@
     menu: "Weekly Menu",
     recipes: "Recipes",
     recipe: "Recipes",
+    "recipe-new": "New Recipe",
+    "recipe-edit": "Edit Recipe",
     pantry: "Pantry & Freezer",
     frameworks: "Frameworks",
     import: "Photo Import",
   };
+
+  /* ------------------------------------------------------------------------
+     Screen Wake Lock (Keep Screen Awake While Cooking)
+     ------------------------------------------------------------------------ */
+
+  let wakeLockSentinel = null;
+  let wakeLockDesired = false;
+
+  async function requestWakeLock() {
+    if (!("wakeLock" in navigator)) return false;
+    try {
+      wakeLockSentinel = await navigator.wakeLock.request("screen");
+      wakeLockDesired = true;
+      wakeLockSentinel.addEventListener("release", () => {
+        wakeLockSentinel = null;
+        syncWakeLockButton();
+      });
+      syncWakeLockButton();
+      return true;
+    } catch {
+      wakeLockDesired = false;
+      syncWakeLockButton();
+      return false;
+    }
+  }
+
+  async function releaseWakeLock() {
+    wakeLockDesired = false;
+    if (wakeLockSentinel) {
+      try {
+        await wakeLockSentinel.release();
+      } catch {
+        /* ignore */
+      }
+      wakeLockSentinel = null;
+    }
+    syncWakeLockButton();
+  }
+
+  function syncWakeLockButton() {
+    const btn = document.getElementById("wake-lock-btn");
+    if (!btn) return;
+    const active = Boolean(wakeLockSentinel);
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+    btn.textContent = active ? "Screen Awake: On" : "Keep Screen Awake";
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && wakeLockDesired && state.route === "recipe") {
+      requestWakeLock();
+    }
+  });
 
   /* ------------------------------------------------------------------------
      Persistence (Display Settings & Weekly Menu Picks)
@@ -413,15 +468,24 @@
 
   function parseHash() {
     const raw = (window.location.hash || "#home").replace(/^#/, "");
+    if (raw === "recipe-new") {
+      return { route: "recipe-new", recipeId: null };
+    }
+    if (raw.startsWith("recipe-edit/")) {
+      return { route: "recipe-edit", recipeId: decodeURIComponent(raw.slice("recipe-edit/".length)) };
+    }
     if (raw.startsWith("recipe/")) {
-      return { route: "recipe", recipeId: raw.slice("recipe/".length) };
+      return { route: "recipe", recipeId: decodeURIComponent(raw.slice("recipe/".length)) };
     }
     const valid = ["home", "menu", "recipes", "pantry", "frameworks", "import"];
     return { route: valid.includes(raw) ? raw : "home", recipeId: null };
   }
 
   function syncNavUI() {
-    const activeSection = state.route === "recipe" ? "recipes" : state.route;
+    const activeSection =
+      state.route === "recipe" || state.route === "recipe-new" || state.route === "recipe-edit"
+        ? "recipes"
+        : state.route;
     document.querySelectorAll("[data-nav]").forEach((link) => {
       link.classList.toggle("is-active", link.dataset.nav === activeSection);
     });
@@ -590,6 +654,48 @@
         stage.innerHTML = banner + renderRecipeDetailView(state.recipeId);
         bindRecipeDetailEvents(stage);
         break;
+      case "recipe-new":
+        stage.innerHTML =
+          banner +
+          window.MoserRecipeForm.renderRecipeForm({
+            recipe: null,
+            isEdit: false,
+            canEdit: canEdit(),
+          });
+        window.MoserRecipeForm.bindRecipeForm(stage, {
+          recipe: null,
+          isEdit: false,
+          masterTags: state.masterTags,
+          onSaved: (saved) => {
+            window.location.hash = `#recipe/${encodeURIComponent(saved.id)}`;
+          },
+          onDeleted: () => {
+            window.location.hash = "#recipes";
+          },
+        });
+        break;
+      case "recipe-edit": {
+        const existing = state.recipes.find((r) => r.id === state.recipeId) || null;
+        stage.innerHTML =
+          banner +
+          window.MoserRecipeForm.renderRecipeForm({
+            recipe: existing,
+            isEdit: Boolean(existing),
+            canEdit: canEdit(),
+          });
+        window.MoserRecipeForm.bindRecipeForm(stage, {
+          recipe: existing,
+          isEdit: Boolean(existing),
+          masterTags: state.masterTags,
+          onSaved: (saved) => {
+            window.location.hash = `#recipe/${encodeURIComponent(saved.id)}`;
+          },
+          onDeleted: () => {
+            window.location.hash = "#recipes";
+          },
+        });
+        break;
+      }
       case "pantry":
         stage.innerHTML = banner + renderPantryView();
         bindPantryEvents(stage);
@@ -986,9 +1092,19 @@
       <header class="page-head page-head--row">
         <div>
           <h1 class="page-title">Recipes</h1>
-          <p class="page-subtitle">${isLive() ? `${recipes.length} recipes synced with Firebase.` : "Sample entries using our finalized schema — sign in to sync with Firebase."}</p>
+          <p class="page-subtitle">${isLive() ? `${recipes.length} recipe${recipes.length === 1 ? "" : "s"} in the household collection.` : "Sample entries — connecting to Firebase."}</p>
         </div>
-        <button type="button" class="btn btn--primary" id="mock-add-recipe">+ Add Recipe</button>
+        ${
+          canEdit()
+            ? `<div class="header-btn-group">
+                 <label class="btn" style="cursor:pointer;" title="Bulk import recipes from a JSON file">
+                   Import JSON
+                   <input type="file" id="recipes-json-import" accept=".json,application/json" hidden />
+                 </label>
+                 <a class="btn btn--primary" href="#recipe-new">+ Add Recipe</a>
+               </div>`
+            : ""
+        }
       </header>
 
       <div class="toolbar">
@@ -1037,8 +1153,17 @@
       });
     });
 
-    stage.querySelector("#mock-add-recipe")?.addEventListener("click", () => {
-      alert("Add/Edit Recipe forms will be built in Phase 5 after we finalize your Google Drive recipe format and Firebase setup.");
+    stage.querySelector("#recipes-json-import")?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const count = await window.MoserRecipeForm.handleJsonImportFile(file);
+        alert(`Imported ${count} recipes into Firebase!`);
+      } catch (err) {
+        alert(err?.message || "Failed to import JSON file.");
+      } finally {
+        e.target.value = "";
+      }
     });
   }
 
@@ -1055,15 +1180,40 @@
       meta.yield ? `<span><strong>Yield:</strong> ${escapeHtml(meta.yield)}</span>` : "",
       meta.sourceUrl
         ? `<span><strong>Source:</strong> <a href="${escapeHtml(meta.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">${escapeHtml(meta.sourceName || "Link")}</a></span>`
+        : meta.sourceName
+        ? `<span><strong>Source:</strong> ${escapeHtml(meta.sourceName)}</span>`
         : "",
     ].filter(Boolean);
 
     const ingGroups = Array.isArray(recipe.ingredientGroups) ? recipe.ingredientGroups : [];
     const instGroups = Array.isArray(recipe.instructionGroups) ? recipe.instructionGroups : [];
     const notesText = (recipe.notes || "").trim();
+    const wakeSupported = "wakeLock" in navigator;
 
     return `
-      <a class="back-link" href="#recipes">← Back to Recipes</a>
+      <div class="recipe-top-bar">
+        <a class="back-link" href="#recipes">← Back to Recipes</a>
+        <div class="recipe-top-actions">
+          ${
+            wakeSupported
+              ? `<button type="button" id="wake-lock-btn" class="btn btn--sm wake-btn ${wakeLockSentinel ? "is-active" : ""}" aria-pressed="${Boolean(wakeLockSentinel)}">
+                   ${wakeLockSentinel ? "Screen Awake: On" : "Keep Screen Awake"}
+                 </button>`
+              : ""
+          }
+          ${
+            canEdit()
+              ? `<a class="btn btn--sm" href="#recipe-edit/${encodeURIComponent(recipe.id)}">Edit</a>`
+              : ""
+          }
+        </div>
+      </div>
+
+      ${
+        recipe.imageUrl
+          ? `<div class="recipe-hero-photo"><img src="${escapeHtml(recipe.imageUrl)}" alt="${escapeHtml(recipe.title)}" /></div>`
+          : ""
+      }
 
       <header class="page-head">
         <h1 class="page-title">${escapeHtml(recipe.title)}</h1>
@@ -1175,6 +1325,13 @@
 
   function bindRecipeDetailEvents(stage) {
     bindCheckableItems(stage);
+    stage.querySelector("#wake-lock-btn")?.addEventListener("click", () => {
+      if (wakeLockSentinel) {
+        releaseWakeLock();
+      } else {
+        requestWakeLock();
+      }
+    });
   }
 
   /* ------------------------------------------------------------------------
@@ -1405,6 +1562,9 @@
 
   function handleRouteChange() {
     const parsed = parseHash();
+    if (state.route === "recipe" && parsed.route !== "recipe") {
+      releaseWakeLock();
+    }
     state.route = parsed.route;
     state.recipeId = parsed.recipeId;
     render();

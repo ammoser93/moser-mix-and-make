@@ -4,7 +4,7 @@
    keeping updates fresh (network-first for app shell files).
    ========================================================================== */
 
-const CACHE_NAME = "moser-mix-and-make-v5";
+const CACHE_NAME = "moser-mix-and-make-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const APP_SHELL = [
   "./js/firebase-config.js",
   "./js/db.js",
   "./js/sample-data.js",
+  "./js/recipe-form.js",
   "./js/app.js",
   "./icons/icon.svg",
   "./icons/icon-192.png",
